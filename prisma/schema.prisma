@@ -1,0 +1,275 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  image         String?
+  emailVerified DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  accounts      Account[]
+  sessions      Session[]
+  projects      ProjectMember[]
+  tasks         Task[]
+  comments      Comment[]
+  notifications Notification[]
+  aiAssistants  AIAssistant[]
+  timeEntries   TimeEntry[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  status      ProjectStatus @default(ACTIVE)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  members     ProjectMember[]
+  tasks       Task[]
+  comments    Comment[]
+  aiAssistants AIAssistant[]
+
+  @@map("projects")
+}
+
+model ProjectMember {
+  id        String   @id @default(cuid())
+  userId    String
+  projectId String
+  role      MemberRole @default(MEMBER)
+  joinedAt  DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectId])
+  @@map("project_members")
+}
+
+model Task {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  status      TaskStatus @default(TODO)
+  priority    Priority @default(MEDIUM)
+  dueDate     DateTime?
+  estimatedHours Float?
+  projectId   String
+  assigneeId  String?
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignee    User?       @relation(fields: [assigneeId], references: [id])
+  createdBy   User        @relation(fields: [createdById], references: [id])
+  comments    Comment[]
+  timeEntries TimeEntry[]
+  subtasks    Subtask[]
+  tags        TaskTag[]
+
+  @@map("tasks")
+}
+
+model Subtask {
+  id        String   @id @default(cuid())
+  title     String
+  completed Boolean  @default(false)
+  taskId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@map("subtasks")
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String
+  userId    String
+  taskId    String?
+  projectId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task    Task?   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("comments")
+}
+
+model TimeEntry {
+  id          String   @id @default(cuid())
+  description String?
+  startTime   DateTime
+  endTime     DateTime?
+  userId      String
+  taskId      String?
+  projectId   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task    Task?   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("time_entries")
+}
+
+model AIAssistant {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  type        AIType
+  config      Json
+  userId      String
+  projectId   String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("ai_assistants")
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  type      NotificationType
+  title     String
+  message   String
+  read      Boolean          @default(false)
+  userId    String
+  metadata  Json?
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model Tag {
+  id    String @id @default(cuid())
+  name  String @unique
+  color String
+
+  tasks TaskTag[]
+
+  @@map("tags")
+}
+
+model TaskTag {
+  taskId String
+  tagId  String
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, tagId])
+  @@map("task_tags")
+}
+
+enum ProjectStatus {
+  ACTIVE
+  ARCHIVED
+  DELETED
+}
+
+enum MemberRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  REVIEW
+  DONE
+  CANCELLED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum AIType {
+  TASK_ASSISTANT
+  PROJECT_MANAGER
+  TIME_TRACKER
+  CODE_REVIEWER
+  DOCUMENTATION_WRITER
+}
+
+enum NotificationType {
+  TASK_ASSIGNED
+  TASK_COMPLETED
+  COMMENT_ADDED
+  PROJECT_INVITE
+  DEADLINE_APPROACHING
+  AI_SUGGESTION
+} 
