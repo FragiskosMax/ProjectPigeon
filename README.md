@@ -58,7 +58,7 @@ An AI-powered project management and collaboration platform that combines intell
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/your-username/project-pigeon.git
+   git clone https://github.com/FragiskosMax/project-pigeon.git
    cd project-pigeon
    ```
 
